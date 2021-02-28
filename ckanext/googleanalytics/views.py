@@ -2,11 +2,14 @@
 
 import hashlib
 import logging
+import requests
 import six
 
 from flask import Blueprint
+from six.moves.urllib.parse import urlencode
 from werkzeug.utils import import_string
 
+import ckan.lib.helpers as h
 import ckan.logic as logic
 import ckan.plugins.toolkit as tk
 import ckan.views.api as api
@@ -44,6 +47,13 @@ ga.add_url_rule(
 )
 ga.add_url_rule(
     u"/<int(min=3, max={0}):ver>/action/<logic_function>".format(
+        api.API_MAX_VERSION
+    ),
+    methods=["GET", "POST"],
+    view_func=action,
+)
+ga.add_url_rule(
+    u"/api/<int(min=3, max={0}):ver>/action/<logic_function>".format(
         api.API_MAX_VERSION
     ),
     methods=["GET", "POST"],
@@ -104,4 +114,13 @@ def _post_analytics(
             "ea": request_obj_type + request_function,
             "el": request_id,
         }
-        GoogleAnalyticsPlugin.analytics_queue.put(data_dict)
+        #GoogleAnalyticsPlugin.analytics_queue.put(data_dict)
+
+        data = urlencode(data_dict)
+        log.debug("Sending API event to Google Analytics: " + data)
+        # send analytics
+        res = requests.post(
+            "https://www.google-analytics.com/collect", data, timeout=10, headers={
+                'User-Agent': 'CKAN v' + h.ckan_version()
+            }
+        )
